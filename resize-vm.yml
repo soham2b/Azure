@@ -1,0 +1,28 @@
+- name: Manage Azure VM
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Stop the VM
+      azure_rm_virtualmachine:
+        resource_group: Ansible
+        name: ansibleVM
+        started: no
+
+    - name: Deallocate the VM
+      azure_rm_virtualmachine:
+        resource_group: Ansible
+        name: ansibleVM
+        allocated: no
+
+    - name: Resize the VM
+      azure_rm_virtualmachine:
+        resource_group: Ansible
+        name: ansibleVM
+        vm_size: Standard_D4as_v4
+        state: present
+
+    - name: Start the VM (optional, if you want to start the VM after resizing)
+      azure_rm_virtualmachine:
+        resource_group: Ansible
+        name: ansibleVM
+        started: yes
