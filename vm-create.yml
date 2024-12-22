@@ -1,0 +1,78 @@
+- name: Create Azure VM
+  hosts: localhost
+  connection: local
+  tasks:
+  - name: Create resource group
+    azure_rm_resourcegroup:
+      name: Ansible
+      location: centralus
+      state: present
+  - name: Create virtual network
+    azure_rm_virtualnetwork:
+      resource_group: Ansible
+      name: ansibleVnet
+      address_prefixes: "10.0.0.0/16"
+      state: present
+  - name: Add subnet
+    azure_rm_subnet:
+      resource_group: Ansible
+      name: ansibleSubnet
+      address_prefix: "10.0.1.0/24"
+      virtual_network: ansibleVnet
+      state: present
+  - name: Create public IP address
+    azure_rm_publicipaddress:
+      resource_group: Ansible
+      allocation_method: Static
+      name: ansiblePublicIP
+      state: present
+    register: output_ip_address
+  - name: Public IP of VM
+    debug:
+      msg: "The public IP is {{ output_ip_address.state.ip_address }}."
+  - name: Debug output of public IP address
+    debug:
+      var: output_ip_address
+  - name: Create Network Security Group that allows SSH
+    azure_rm_securitygroup:
+      resource_group: Ansible
+      name: ansibleNetworkSecurityGroup
+      rules:
+        - name: SSH
+          protocol: Tcp
+          destination_port_range: 22
+          access: Allow
+          priority: 1001
+          direction: Inbound
+      state: present
+  - name: Create virtual network interface card
+    azure_rm_networkinterface:
+      resource_group: Ansible
+      name: ansibleNIC
+      virtual_network: ansibleVnet
+      subnet: ansibleSubnet
+      state: present
+      ip_configurations:
+        - name: ipconfig1
+          public_ip_address_name: "{{ output_ip_address.state.name }}"
+          private_ip_allocation_method: Dynamic
+          primary: True
+      security_group: ansibleNetworkSecurityGroup
+  - name: Create VM
+    azure_rm_virtualmachine:
+      resource_group: Ansible
+      name: ansibleVM
+      vm_size: Standard_B4ms
+      admin_username: soham
+      ssh_password_enabled: false
+      ssh_public_keys:
+        - path: /home/soham/.ssh/authorized_keys
+          key_data: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCluqzuzLxToLevj+hPDoOflFOKxcttAdmMsyjC4QqYswfpQJC4OrpYFtJLvbWFrw99iXhcHhVXr1/wl/34HtIuao92fbYeUYe7H1zDij9f9CXCs+q9GxvrbWC9iUXUJl2ucZKfbzCFYhdLADumpe7WNmlC21gqoVpDWOdrKLDvOX6VL5LmMVdoHnJ/iHDkl9w/yXcdFMhEkRSHZyqI16l9dKmH0pQzfXDya0ya0MAa/Yr9oUR2jMEybL3zUydy20yMQN9tdRrZluXYXzvITl3R+2paAJPvUCx/rCPhMP5NjD4fno4J49IBohLHsKITwS1/yOUPvVzbcp5+tO9HByyTIqdvIGJdUGRRc489Lq8fUTtbwblCh6dMKShZdttjqf91r8U3illohzKmoWLqLLMut02sOMhz4is9yY0d7YYm7IfWihxvGfgcs8EsMwoNEbsdSZ6DuAZO4S9pDV9EJUs+ROfxP5sFuaBSk7f68jhUPkQyE8qx1UiY56xPv5PkJwNUOaM2yc8k8PamTs5MJOOIOjv6f9OKdpu9qfB/S4R1xuAphxpROtKL2HKy4i6SkhsQrV+8sSWYHoTkV7iRenXiFpoPFRiUwmzYaNDddRFnGLw4ry1yaqiBHQfEWMpop8UTlurHS7kGrsaCWF6AkXiJhfEgdDhGnzs9oVx2MEPdQQ== soham@QuickstartAnsible-vm"
+      network_interfaces: ansibleNIC
+      managed_disk_type: Premium_LRS
+      image:
+        offer: 0001-com-ubuntu-server-jammy
+        publisher: Canonical
+        sku: 22_04-lts-gen2
+        version: latest
+      state: present
